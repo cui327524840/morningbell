@@ -2,6 +2,19 @@ import AVFoundation
 import Combine
 import Foundation
 
+/// 一段待播报内容：`title` 用于锁屏卡片，`text` 用于朗读。
+struct SpeechEntry {
+    var id: String?
+    var title: String
+    var text: String
+
+    init(id: String? = nil, title: String = "", text: String) {
+        self.id = id
+        self.title = title
+        self.text = text
+    }
+}
+
 /// 朗读服务。
 /// 音色优先级：云端真人语音（配置了才用）→ 设备上最好的中文音色 → 系统默认中文音色。
 /// 支持单条朗读与整篇顺序朗读；云端合成结果会缓存到本地。
@@ -17,8 +30,11 @@ final class SpeechService: NSObject, ObservableObject {
     private weak var settings: AppSettings?
     private let synthesizer = AVSpeechSynthesizer()
     private var audioPlayer: AVAudioPlayer?
-    private var queue: [(id: String?, text: String)] = []
+    private var queue: [SpeechEntry] = []
     private var currentText = ""
+    private var currentTitle = ""
+    private var queueTotal = 0
+    private var playedCount = 0
     private var finishHandler: (() -> Void)?
 
     private override init() {
@@ -28,28 +44,42 @@ final class SpeechService: NSObject, ObservableObject {
 
     func configure(settings: AppSettings) {
         self.settings = settings
+        wireLockScreenControls()
+    }
+
+    /// 锁屏 / 控制中心上的播放、暂停、停止接到这里。
+    private func wireLockScreenControls() {
+        let presenter = LockScreenPresenter.shared
+        presenter.onPlay = { [weak self] in self?.resume() }
+        presenter.onPause = { [weak self] in self?.pause() }
+        presenter.onStop = { [weak self] in self?.stop() }
     }
 
     // MARK: - 对外接口
 
-    func speak(_ text: String, id: String? = nil, onFinish: (() -> Void)? = nil) {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+    func speak(_ text: String, id: String? = nil, title: String? = nil, onFinish: (() -> Void)? = nil) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
             onFinish?()
             return
         }
-        prepareAudioSession()
-        queue = [(id, text)]
-        finishHandler = onFinish
-        startNext()
+        speakAll([SpeechEntry(id: id, title: title ?? "", text: trimmed)], onFinish: onFinish)
     }
 
     func speakAll(_ items: [(id: String?, text: String)], onFinish: (() -> Void)? = nil) {
-        guard !items.isEmpty else {
+        speakAll(items.map { SpeechEntry(id: $0.id, title: "", text: $0.text) }, onFinish: onFinish)
+    }
+
+    func speakAll(_ entries: [SpeechEntry], onFinish: (() -> Void)? = nil) {
+        let usable = entries.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard !usable.isEmpty else {
             onFinish?()
             return
         }
         prepareAudioSession()
-        queue = items
+        queue = usable
+        queueTotal = usable.count
+        playedCount = 0
         finishHandler = onFinish
         startNext()
     }
@@ -63,7 +93,33 @@ final class SpeechService: NSObject, ObservableObject {
         isSpeaking = false
         isSynthesizing = false
         currentID = nil
+        LockScreenPresenter.shared.end()
         restoreKeepAliveSession()
+    }
+
+    /// 锁屏 / 控制中心暂停。
+    func pause() {
+        guard isSpeaking || isSynthesizing else { return }
+        if let player = audioPlayer {
+            player.pause()
+        } else {
+            synthesizer.pauseSpeaking(at: .word)
+        }
+        isSpeaking = false
+        LockScreenPresenter.shared.setPlaying(false)
+    }
+
+    /// 锁屏 / 控制中心继续。
+    func resume() {
+        if let player = audioPlayer {
+            player.play()
+        } else if synthesizer.isPaused {
+            synthesizer.continueSpeaking()
+        } else {
+            return
+        }
+        isSpeaking = true
+        LockScreenPresenter.shared.setPlaying(true)
     }
 
     // MARK: - 音色
@@ -129,6 +185,7 @@ final class SpeechService: NSObject, ObservableObject {
             isSpeaking = false
             isSynthesizing = false
             currentID = nil
+            LockScreenPresenter.shared.end()
             let handler = finishHandler
             finishHandler = nil
             restoreKeepAliveSession()
@@ -136,9 +193,21 @@ final class SpeechService: NSObject, ObservableObject {
             return
         }
         let next = queue.removeFirst()
+        playedCount += 1
         currentID = next.id
         currentText = next.text
+        currentTitle = next.title
         isSpeaking = true
+
+        let presenter = LockScreenPresenter.shared
+        let subtitle = queueTotal > 1
+            ? "晨钟 · 时政播报（\(playedCount)/\(queueTotal)）"
+            : "晨钟 · 时政播报"
+        if presenter.isActive {
+            presenter.update(title: next.title, subtitle: subtitle, body: next.text)
+        } else {
+            presenter.begin(title: next.title, subtitle: subtitle, body: next.text)
+        }
 
         if let config = cloudConfig {
             speakWithCloud(next.text, config: config)
@@ -186,6 +255,7 @@ final class SpeechService: NSObject, ObservableObject {
             player.prepareToPlay()
             player.play()
             audioPlayer = player
+            LockScreenPresenter.shared.setDuration(player.duration)
         } catch {
             lastError = "云端语音播放失败，已改用系统音色：\(error.localizedDescription)"
             speakWithSystem(currentText)

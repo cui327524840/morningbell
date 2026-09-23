@@ -214,6 +214,7 @@ final class AlarmEngine: NSObject, ObservableObject {
         playMusic(for: alarm)
         scheduleAutoStop()
         postRingNotification(alarm: alarm, isSnooze: isSnooze)
+        publishLockScreenDigestCard(timeText: alarm.timeText)
         speak(for: alarm)
 
         if !isSnooze, alarm.weekdays.isEmpty, let store = store,
@@ -253,7 +254,7 @@ final class AlarmEngine: NSObject, ObservableObject {
         let content = UNMutableNotificationContent()
         content.title = alarm.label.isEmpty ? "闹钟" : alarm.label
         content.body = "\(minutes) 分钟后再响"
-        content.sound = UNNotificationSound(named: UNNotificationSoundName("alarm_default.wav"))
+        content.sound = SoundLibrary.shared.notificationSound(for: alarm.soundFileName)
         content.categoryIdentifier = NotificationScheduler.categoryId
         content.userInfo = ["alarmId": alarm.id.uuidString]
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(minutes * 60), repeats: false)
@@ -324,7 +325,8 @@ final class AlarmEngine: NSObject, ObservableObject {
         let content = UNMutableNotificationContent()
         content.title = alarm.label.isEmpty ? "闹钟" : alarm.label
         content.body = isSnooze ? "\(alarm.timeText) · 贪睡结束" : "\(alarm.timeText) · 该起床了"
-        content.sound = .default
+        content.sound = SoundLibrary.shared.notificationSound(for: alarm.soundFileName)
+        applyLockScreenDigest(to: content, wantsDigest: !isSnooze)
         content.categoryIdentifier = NotificationScheduler.categoryId
         content.userInfo = ["alarmId": alarm.id.uuidString]
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
@@ -474,7 +476,7 @@ enum NotificationScheduler {
             let content = UNMutableNotificationContent()
             content.title = alarm.label.isEmpty ? "闹钟" : alarm.label
             content.body = "\(alarm.timeText) · 点击进入响铃界面"
-            content.sound = UNNotificationSound(named: UNNotificationSoundName("alarm_default.wav"))
+            content.sound = SoundLibrary.shared.notificationSound(for: alarm.soundFileName)
             content.categoryIdentifier = categoryId
             content.userInfo = ["alarmId": alarm.id.uuidString]
             if critical {

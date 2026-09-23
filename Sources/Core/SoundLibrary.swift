@@ -1,5 +1,6 @@
 import AVFoundation
 import Combine
+import UserNotifications
 
 struct SoundOption: Identifiable, Equatable {
     var id: String
@@ -74,6 +75,13 @@ final class SoundLibrary: ObservableObject {
             return bundled.title
         }
         return (fileName as NSString).deletingPathExtension
+    }
+
+    /// 通知兜底时的声音。
+    /// iOS 只允许通知播放「随 App 打包」的声音（用户导入的 MP3 用不了），
+    /// 所以这里统一用内置闹铃音；App 正常在后台运行时放的还是用户选的铃声。
+    func notificationSound(for fileName: String?) -> UNNotificationSound {
+        UNNotificationSound(named: UNNotificationSoundName("alarm_default.wav"))
     }
 
     func importFile(from url: URL) {

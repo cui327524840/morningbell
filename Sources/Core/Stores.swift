@@ -22,6 +22,7 @@ final class AlarmStore: ObservableObject {
             return
         }
         alarms = decoded
+        alarms = LegacyMigration.migrateAlarms(alarms)
     }
 
     private func persist() {
@@ -147,7 +148,7 @@ final class AppSettings: ObservableObject {
         cloudTTSKey = defaults.string(forKey: "cloudTTSKey") ?? ""
         cloudTTSRegion = defaults.string(forKey: "cloudTTSRegion") ?? "eastasia"
         cloudTTSVoice = defaults.string(forKey: "cloudTTSVoice") ?? "zh-CN-XiaoxiaoNeural"
-        defaultSoundFileName = defaults.string(forKey: "defaultSoundFileName") ?? ""
+        defaultSoundFileName = LegacyMigration.migratedDefaultSoundName(current: defaults.string(forKey: "defaultSoundFileName") ?? "")
         loadSources()
         isLoaded = true
     }
