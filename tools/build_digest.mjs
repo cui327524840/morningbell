@@ -351,7 +351,13 @@ function shortenTitle(text, max) {
 
 /// 短评风格：只留第一句话，并控制在 max 字以内。
 function firstSentence(text, max) {
-  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  const clean = String(text || '')
+    // 去掉电头：中新网济南9月23日电 (孙倩)
+    .replace(/^[\u4e00-\u9fa5]{2,6}(?:\d{1,2}月\d{1,2}日电)?[（(][^）)]{2,20}[）)]\s*/, '')
+    .replace(/^[\u4e00-\u9fa5]{2,6}\d{1,2}月\d{1,2}日电\s*/, '')
+    .replace(/^[（(][^）)]{2,20}[）)]\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!clean) return '';
   const match = clean.match(/^[^。！？!?]{6,}?[。！？!?]/);
   let sentence = (match ? match[0] : clean).trim();
@@ -370,53 +376,57 @@ const BOILERPLATE = /(责任编辑|来源[:：]|声明|版权|免责|扫码|关�
 
 /// 从新闻页 HTML 里抽正文段落：优先常见正文容器，抽不到就退回全文的 <p>。
 function extractArticleText(html, maxChars = 1200) {
-  let scope = html;
   const containerPatterns = [
     /<div[^>]*(?:class|id)=["'][^"']*(?:article|content|main|text|detail|body|conTxt|TRS_Editor)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
     /<article[^>]*>([\s\S]*?)<\/article>/i
   ];
+
+  // 候选范围：先试正文容器，再退回整页（之前只试了容器，失败后会错误地继续用容器）
+  const scopes = [];
   for (const pattern of containerPatterns) {
     const match = html.match(pattern);
     if (match && match[1] && match[1].length > 400) {
-      scope = match[1];
-      break;
+      scopes.push(stripBlocks(match[1]));
     }
   }
+  scopes.push(stripBlocks(html));
 
-  const cleaned = scope
+  for (const scope of scopes) {
+    const paragraphs = collectParagraphs(scope);
+    if (paragraphs.length >= 2) return joinParagraphs(paragraphs, maxChars);
+  }
+
+  // 有些站点（比如央视）把正文放在 JS 字符串里：var contentdate = '<p>…</p>'
+  const jsMatch = html.match(/(?:var\s+)?(?:contentdate|articleContent|content_html|newsContent)\s*=\s*['"]((?:[^'"\\]|\\.){200,}?)['"]\s*[;\n]/i);
+  if (jsMatch) {
+    const unescaped = jsMatch[1]
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+      .replace(/\\'/g, "'")
+      .replace(/\\"/g, '"')
+      .replace(/\\\//g, '/')
+      .replace(/\\r?\\n/g, '\n');
+    const paragraphs = collectParagraphs(unescaped);
+    if (paragraphs.length >= 2) return joinParagraphs(paragraphs, maxChars);
+  }
+
+  // 最后一步：整页文本按句切
+  const whole = cleanText(stripBlocks(html), 8000);
+  const sentences = whole
+    .split(/(?<=[。！？])/)
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 18 && !BOILERPLATE.test(part));
+  return joinParagraphs(sentences.slice(0, 12), maxChars);
+}
+
+function stripBlocks(html) {
+  return html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<(nav|header|footer|aside|form|iframe)[\s\S]*?<\/\1>/gi, ' ');
+}
 
-  const paragraphs = collectParagraphs(cleaned);
-
-  // 有些站点（比如央视）把正文放在 JS 字符串里：var contentdate = '<p>…</p>'
-  if (paragraphs.length < 2) {
-    const jsMatch = html.match(/(?:var\s+)?(?:contentdate|articleContent|content_html|newsContent)\s*=\s*['"]((?:[^'"\\]|\\.){200,}?)['"]\s*[;\n]/i);
-    if (jsMatch) {
-      const unescaped = jsMatch[1]
-        .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
-        .replace(/\\'/g, "'")
-        .replace(/\\"/g, '"')
-        .replace(/\\\//g, '/')
-        .replace(/\\r?\\n/g, '\n');
-      for (const paragraph of collectParagraphs(unescaped)) {
-        if (!paragraphs.includes(paragraph)) paragraphs.push(paragraph);
-      }
-    }
-  }
-
-  // 段落太少时，退一步用整页文本切句
-  if (paragraphs.length < 2) {
-    const whole = cleanText(cleaned, 6000);
-    const sentences = whole.split(/(?<=[。！？])/).map((part) => part.trim()).filter((part) => part.length >= 18 && !BOILERPLATE.test(part));
-    for (const sentence of sentences) {
-      if (paragraphs.length >= 12) break;
-      paragraphs.push(sentence);
-    }
-  }
-
+function joinParagraphs(paragraphs, maxChars) {
   const kept = [];
   let total = 0;
   for (const paragraph of paragraphs) {
