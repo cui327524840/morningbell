@@ -17,6 +17,8 @@ final class AlarmEngine: NSObject, ObservableObject {
     @Published var weather: WeatherSnapshot?
     @Published var authorizationText: String = "未请求"
     @Published var criticalAlertsAvailable = false
+    /// 安全模式：上次启动异常时，临时停用后台保活，只保留通知提醒。
+    @Published var isSafeMode = false
 
     private weak var store: AlarmStore?
     private weak var settings: AppSettings?
@@ -41,9 +43,10 @@ final class AlarmEngine: NSObject, ObservableObject {
         self.settings = settings
     }
 
-    func start() {
+    func start(safeMode: Bool = false) {
+        isSafeMode = safeMode || LaunchLog.isSafeMode
         NotificationScheduler.registerCategories()
-        statusMessage = "已启动"
+        statusMessage = isSafeMode ? "安全模式：已停用后台保活" : "已启动"
         applySettings()
         startTicking()
         if let id = pendingRingID {
@@ -54,7 +57,7 @@ final class AlarmEngine: NSObject, ObservableObject {
 
     /// 设置变化后重新应用（保活开关、播报开关、重复规则等）。
     func applySettings() {
-        BackgroundKeeper.shared.syncWithSettings(settings?.keepAlive ?? false)
+        BackgroundKeeper.shared.syncWithSettings((settings?.keepAlive ?? false) && !isSafeMode)
         NotificationScheduler.schedule(alarms: store?.alarms ?? [],
                                        critical: settings?.criticalAlerts ?? false,
                                        fallback: settings?.notificationFallback ?? true)
@@ -64,7 +67,7 @@ final class AlarmEngine: NSObject, ObservableObject {
 
     /// 回到前台或进入后台时调用，确保保活和计时器都在工作。
     func resume() {
-        if settings?.keepAlive ?? false {
+        if (settings?.keepAlive ?? false) && !isSafeMode {
             BackgroundKeeper.shared.start()
         }
         refreshStatus()

@@ -49,18 +49,31 @@ struct MorningBellApp: App {
     }
 
     private func bootstrap() {
+        LaunchLog.mark("启动开始")
+        let unfinishedLastTime = LaunchLog.beginLaunch()
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
+        LaunchLog.mark("通知回调注册完成")
         engine.configure(store: store, settings: settings)
         digest.configure(settings: settings)
+        LaunchLog.mark("依赖注入完成")
         engine.requestAuthorizationIfNeeded { _ in }
-        engine.start()
+        LaunchLog.mark("通知授权已发起")
+        engine.start(safeMode: unfinishedLastTime)
+        LaunchLog.mark("闹钟引擎启动完成")
         weather.refresh(city: settings.defaultCity) { _ in }
+        LaunchLog.mark("天气请求已发出")
         digest.loadFromDisk()
+        LaunchLog.mark("要点快照加载完成")
         if digest.digest?.date != digest.today {
             digest.refresh()
         }
         if news.items.isEmpty {
             news.refresh(sources: settings.newsSources)
+        }
+        LaunchLog.mark("首页数据准备完成")
+        // 界面显示出来之后再清除启动标记，避免把正常启动误判成崩溃
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            LaunchLog.finishLaunch()
         }
     }
 }

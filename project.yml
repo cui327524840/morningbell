@@ -32,7 +32,8 @@ targets:
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        # 有图标才能正常显示，也能避免一部分系统层面的校验问题
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 schemes:
   MorningBell:
     build:

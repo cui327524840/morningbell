@@ -150,6 +150,12 @@ struct SettingsView: View {
                     infoRow("通知权限", engine.authorizationText)
                     infoRow("重要警告", engine.criticalAlertsAvailable ? "可用" : "不可用")
                     infoRow("后台保活", BackgroundKeeper.shared.isRunning ? "运行中" : (BackgroundKeeper.shared.isEnabled ? "未运行" : "已关闭"))
+                    infoRow("上次启动", LaunchLog.lastLaunchText)
+                    if engine.isSafeMode {
+                        Text("已进入安全模式：后台保活被临时停用，闹钟暂时只能靠通知提醒（最长 30 秒）。这通常说明上次启动过程中崩溃了，把上面那行「上次启动」的内容告诉我即可定位。")
+                            .font(.footnote)
+                            .foregroundColor(.red)
+                    }
                     if let error = BackgroundKeeper.shared.lastError {
                         Text(error).font(.footnote).foregroundColor(.red)
                     }
