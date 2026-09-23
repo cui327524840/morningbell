@@ -1,11 +1,13 @@
 {
-  "max_items": 10,
+  "max_items": 8,
   "min_items": 5,
   "publish_floor": 3,
+  "summary_max": 48,
   "max_age_days": 4,
   "selection": {
     "max_per_source": 4,
-    "max_per_kind": { "policy": 3, "comment": 4 }
+    "max_per_kind": { "policy": 3, "comment": 3 },
+    "min_per_source": { "央视网评（央视点评）": 1 }
   },
   "kind_bonus": { "policy": 5, "comment": 0, "news": 0 },
   "penalties": ["直播", "图集", "图说", "视频", "花絮", "广告", "招聘", "预告", "海报"],
@@ -23,6 +25,16 @@
     "评论": ["评论", "锐评", "时评", "网评", "短评", "今日谈", "声音", "观察", "漫评", "青平", "任平", "仲音"]
   },
   "sources": [
+    {
+      "name": "央视网评（央视点评）",
+      "type": "embedded_objects",
+      "url": "https://opinion.cctv.com/",
+      "pattern": "\\{\"url\":\\s*\"([^\"]+)\",\\s*\"title\":\\s*\"([^\"]+)\",\\s*\"imgUrl\":\\s*\"[^\"]*\",\\s*\"brief\":\\s*\"([^\"]*)\",\\s*\"author\":\\s*\"([^\"]*)\",\\s*\"date\":\\s*\"([^\"]*)\"\\}",
+      "fields": ["url", "title", "brief", "author", "date"],
+      "kind": "comment",
+      "max_age_days": 45,
+      "weight": 3
+    },
     {
       "name": "中国政府网 · 政策文件库",
       "type": "json",
@@ -79,6 +91,15 @@
       "name": "新华网评",
       "type": "html_links",
       "url": "http://www.news.cn/comments/",
+      "include": "\\.(html|shtml)$",
+      "kind": "comment",
+      "max_age_days": 7,
+      "weight": 3
+    },
+    {
+      "name": "新华网评 · 最新评论",
+      "type": "html_links",
+      "url": "http://www.news.cn/comments/wpgd/index.html",
       "include": "\\.(html|shtml)$",
       "kind": "comment",
       "max_age_days": 7,

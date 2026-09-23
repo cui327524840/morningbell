@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  # 用 GitHub 自带的模型把每条要点压成短评（不需要额外申请 key）
+  models: read
 
 concurrency:
   group: build-digest
@@ -28,10 +30,10 @@ jobs:
 
       - name: 生成每日时政要点
         env:
-          # 可选：配置了就用大模型精炼要点，没配就用抽取式摘要
-          DIGEST_LLM_KEY: ${{ secrets.DIGEST_LLM_KEY }}
-          DIGEST_LLM_BASE: ${{ vars.DIGEST_LLM_BASE }}
-          DIGEST_LLM_MODEL: ${{ vars.DIGEST_LLM_MODEL }}
+          # 优先用你自己配的 key；没配就自动用 GitHub 自带模型 + 仓库令牌
+          DIGEST_LLM_KEY: ${{ secrets.DIGEST_LLM_KEY || github.token }}
+          DIGEST_LLM_BASE: ${{ vars.DIGEST_LLM_BASE || 'https://models.github.ai/inference' }}
+          DIGEST_LLM_MODEL: ${{ vars.DIGEST_LLM_MODEL || 'openai/gpt-4o-mini' }}
         run: node tools/build_digest.mjs --out-dir data
 
       - name: 提交回仓库

@@ -47,11 +47,7 @@ struct DigestView: View {
         }
         .listStyle(.insetGrouped)
         .sheet(item: $selectedItem) { item in
-            NewsDetailView(item: NewsItem(title: item.title,
-                                          link: item.link,
-                                          source: item.source,
-                                          published: item.published,
-                                          summary: item.summary))
+            ArticleReaderView(item: item)
         }
     }
 
@@ -234,7 +230,7 @@ struct DigestRow: View {
             HStack(spacing: 16) {
                 Button(isSpeaking ? "停止朗读" : "朗读") { onSpeak() }
                 if !item.link.isEmpty {
-                    Button("读原文") { onOpen() }
+                    Button("阅读全文") { onOpen() }
                 }
                 Spacer()
                 Button(isExpanded ? "收起" : "展开要点") { onToggleExpand() }

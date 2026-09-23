@@ -10,6 +10,8 @@ struct DigestItem: Identifiable, Codable, Equatable {
     var source: String
     var link: String
     var published: Date?
+    /// 生成器抓好的正文（App 内直接阅读，不跳网页）。没有时为空字符串。
+    var body: String?
     /// "notice" 表示这条不是新闻，而是使用说明。
     var kind: String?
 

@@ -48,6 +48,7 @@ function parseArgs(argv) {
     else if (arg === '--fixture-dir') args.fixtureDir = argv[++i];
     else if (arg === '--today') args.today = argv[++i];
     else if (arg === '--no-llm') args.noLlm = true;
+    else if (arg === '--probe-url') args.probeUrl = argv[++i];
     else if (arg === '--help' || arg === '-h') {
       console.log(USAGE);
       process.exit(0);
@@ -348,6 +349,121 @@ function shortenTitle(text, max) {
   return head;
 }
 
+/// 短评风格：只留第一句话，并控制在 max 字以内。
+function firstSentence(text, max) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  const match = clean.match(/^[^。！？!?]{6,}?[。！？!?]/);
+  let sentence = (match ? match[0] : clean).trim();
+  if (sentence.length > max) {
+    // 优先在逗号/分号处断开，避免截到半个词
+    const head = sentence.slice(0, max);
+    const cut = Math.max(head.lastIndexOf('，'), head.lastIndexOf('；'), head.lastIndexOf('、'));
+    sentence = cut >= 12 ? `${head.slice(0, cut)}。` : `${head.slice(0, max - 1)}…`;
+  }
+  return sentence;
+}
+
+// ---------- 正文提取（供 App 内直接阅读，不跳网页） ----------
+
+const BOILERPLATE = /(责任编辑|来源[:：]|声明|版权|免责|扫码|关注微信|微信公众号|上一页|下一页|相关阅读|热门推荐|编辑[:：]|转载|纠错|返回顶部|分享到|打印本页|关闭窗口|广告|原标题|【编辑|点击进入|更多精彩|频道导航|网站地图|关于我们|联系方式|京ICP|举报)/;
+
+/// 从新闻页 HTML 里抽正文段落：优先常见正文容器，抽不到就退回全文的 <p>。
+function extractArticleText(html, maxChars = 1200) {
+  let scope = html;
+  const containerPatterns = [
+    /<div[^>]*(?:class|id)=["'][^"']*(?:article|content|main|text|detail|body|conTxt|TRS_Editor)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+    /<article[^>]*>([\s\S]*?)<\/article>/i
+  ];
+  for (const pattern of containerPatterns) {
+    const match = html.match(pattern);
+    if (match && match[1] && match[1].length > 400) {
+      scope = match[1];
+      break;
+    }
+  }
+
+  const cleaned = scope
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(nav|header|footer|aside|form|iframe)[\s\S]*?<\/\1>/gi, ' ');
+
+  const paragraphs = collectParagraphs(cleaned);
+
+  // 有些站点（比如央视）把正文放在 JS 字符串里：var contentdate = '<p>…</p>'
+  if (paragraphs.length < 2) {
+    const jsMatch = html.match(/(?:var\s+)?(?:contentdate|articleContent|content_html|newsContent)\s*=\s*['"]((?:[^'"\\]|\\.){200,}?)['"]\s*[;\n]/i);
+    if (jsMatch) {
+      const unescaped = jsMatch[1]
+        .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+        .replace(/\\'/g, "'")
+        .replace(/\\"/g, '"')
+        .replace(/\\\//g, '/')
+        .replace(/\\r?\\n/g, '\n');
+      for (const paragraph of collectParagraphs(unescaped)) {
+        if (!paragraphs.includes(paragraph)) paragraphs.push(paragraph);
+      }
+    }
+  }
+
+  // 段落太少时，退一步用整页文本切句
+  if (paragraphs.length < 2) {
+    const whole = cleanText(cleaned, 6000);
+    const sentences = whole.split(/(?<=[。！？])/).map((part) => part.trim()).filter((part) => part.length >= 18 && !BOILERPLATE.test(part));
+    for (const sentence of sentences) {
+      if (paragraphs.length >= 12) break;
+      paragraphs.push(sentence);
+    }
+  }
+
+  const kept = [];
+  let total = 0;
+  for (const paragraph of paragraphs) {
+    if (total >= maxChars) break;
+    kept.push(paragraph);
+    total += paragraph.length;
+  }
+  return kept.join('\n');
+}
+
+/// 从一段 HTML 里收集可读段落。
+function collectParagraphs(html) {
+  const paragraphs = [];
+  const regex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+  let match = regex.exec(html);
+  while (match !== null) {
+    const text = cleanText(match[1], 600).trim();
+    match = regex.exec(html);
+    if (text.length < 18) continue;
+    if (BOILERPLATE.test(text)) continue;
+    if (/^[\d\s.、]+$/.test(text)) continue;
+    if (paragraphs.length > 0 && paragraphs[paragraphs.length - 1] === text) continue;
+    paragraphs.push(text);
+  }
+  return paragraphs;
+}
+
+/// 判断一段摘要是不是"不能当短评用"的噪声：
+/// 发文字号、公众号导语、空话开头、跟标题重复的，都直接丢掉，只留标题。
+function isWeakSummary(summary, title) {
+  const text = String(summary || '').trim();
+  if (text.length < 12) return true;
+  const normSummary = normalizeTitle(text);
+  const normTitle = normalizeTitle(title);
+  if (!normSummary) return true;
+  if (normTitle.length > 8 && (normSummary.includes(normTitle) || normTitle.includes(normSummary))) return true;
+  if (/^(当前|近年来|近期|如今)[，,]/.test(text)) return true;
+  if (/据[^，。；]{0,16}(公众号|微博|客户端|消息|报道)/.test(text)) return true;
+  if (/(国办函|国发〔|国办发〔|号）|印发的通知)/.test(text)) return true;
+  if (/^[\u4e00-\u9fa5]{2,12}(办公厅|部门|委员会|总局)\s*(关于|转发|印发)/.test(text)) return true;
+  // 既没有数字、也没有动作词，多半是抒情式导语或空话，不能当短评
+  const hasNumber = /\d/.test(text);
+  const hasAction = /(部署|印发|发布|通过|签署|增长|下降|达到|宣布|启动|完成|实现|要求|明确|提出|决定|数据|预计|突破|新增|同比|会议|规划)/.test(text);
+  if (!hasNumber && !hasAction) return true;
+  return false;
+}
+
 /// 通用 JSON / JSONP 列表接口解析：列表路径和字段名都在配置里指定。
 /// 例如央视新闻接口（data.list，自带 brief 与 keywords）和中国政府网政策文件库（searchVO.listVO）。
 function parseJson(body, source) {
@@ -400,10 +516,51 @@ function parseJson(body, source) {
   return { items, note: null };
 }
 
+/// 解析页面里内嵌的 JSON 对象数组（例如央视评论频道把列表放在 var obj = [{...}] 里）。
+/// pattern 与字段名都写在 sources.json 里，加同类站点不用改代码。
+function parseEmbeddedObjects(html, source) {
+  if (!source.pattern) return { items: [], note: '缺少 pattern 配置' };
+  const fields = source.fields || ['url', 'title', 'brief', 'author', 'date'];
+  const regex = new RegExp(source.pattern, 'gi');
+  const items = [];
+  const seen = new Set();
+  let match = regex.exec(html);
+  while (match !== null) {
+    const row = {};
+    fields.forEach((field, index) => {
+      row[field] = match[index + 1] ? cleanText(match[index + 1], 200) : '';
+    });
+    match = regex.exec(html);
+
+    const title = row.title || '';
+    if (title.length < 6) continue;
+    const key = normalizeTitle(title);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    let link = (row.url || '').trim();
+    if (link.startsWith('//')) link = `https:${link}`;
+    items.push({
+      title,
+      link,
+      summary: row.brief || '',
+      keywords: row.author || '',
+      published: parseDate(row.date || '') || parseDate(urlDate(link)),
+      source: source.name
+    });
+  }
+  return { items, note: null };
+}
+
 function parseDate(raw) {
   if (!raw) return null;
   const text = String(raw).trim();
   if (!text) return null;
+  // 央视评论用的写法：2026年09月11日
+  const chinese = text.match(/^(20\d{2})年(\d{1,2})月(\d{1,2})日/);
+  if (chinese) {
+    return parseDate(`${chinese[1]}-${String(chinese[2]).padStart(2, '0')}-${String(chinese[3]).padStart(2, '0')}`);
+  }
   // 统一成 2026-09-18，兼容 2026.09.18 / 2026/9/18 这类写法
   const normalized = text.replace(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/, (_, year, month, day) =>
     `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
@@ -515,6 +672,31 @@ function selectWithQuotas(ranked, config) {
   if (picked.length < minItems) {
     for (const item of ranked) tryPick(item, false);
   }
+
+  // 保底来源：例如央视点评这种你想每天必看的栏目，至少留一条
+  const guarantees = selection.min_per_source || {};
+  for (const [sourceName, minimum] of Object.entries(guarantees)) {
+    let have = picked.filter((item) => item.source === sourceName).length;
+    if (have >= minimum) continue;
+    for (const item of ranked) {
+      if (have >= minimum) break;
+      if (item.source !== sourceName) continue;
+      if (picked.some((existing) => existing.link && existing.link === item.link)) continue;
+      if (picked.length < maxItems) {
+        picked.push(item);
+        have += 1;
+        continue;
+      }
+      const replaceIndex = picked
+        .map((existing, index) => ({ source: existing.source, index }))
+        .filter((entry) => !guarantees[entry.source])
+        .map((entry) => entry.index)
+        .pop();
+      if (replaceIndex === undefined) break;
+      picked[replaceIndex] = item;
+      have += 1;
+    }
+  }
   return picked;
 }
 
@@ -532,15 +714,17 @@ function buildPrompt(candidates, maxItems, today) {
 
 ${list}
 
-请从中挑出 ${Math.min(5, maxItems)} 到 ${maxItems} 条最值得国考考生掌握的时政要点，输出严格 JSON，不要任何解释文字：
+请挑出 ${Math.min(5, maxItems)} 到 ${maxItems} 条，写成「每日时政」简报那种格式（类似粉笔每日时政）：一条一个事件，一句话讲清楚。只输出严格 JSON，不要任何解释文字：
 
-{"items":[{"source_index":0,"title":"不超过 30 字的标题","summary":"60~120 字的要点说明，说清是什么事、关键数字、为什么重要","category":"政治/经济/民生/法治/科技/生态/文化/外交/乡村 之一","tags":["考点标签1","考点标签2"]}]}
+{"items":[{"source_index":0,"title":"不超过 24 字的简讯标题","summary":"30~60 字，说清谁、在什么时间、做了什么、关键数字或影响","category":"政治/经济/民生/法治/科技/生态/文化/外交/乡村 之一","tags":["考点关键词1","考点关键词2"]}]}
 
 要求：
 1. source_index 必须来自上面的编号，不得编造新闻，不得修改事实与数字。
-2. 优先选会议决策、政策文件、重要讲话、重要经济数据、民生举措。
+2. 优先选会议决策、政策文件、重要讲话、重要经济数据、民生举措；如果某条是权威媒体的评论/时评，用它的核心观点。
 3. 同类事件只保留最重要的一条。
-4. summary 要像给考生划重点，不要空话。`;
+4. summary 用**新闻简讯口吻**（陈述事实，不是评论）：30~60 字，像"9月23日，工信部等三部门印发《轻工纺织产业发展"十五五"规划》，提出到2030年规上企业营收年均增长5%左右。"这样。
+5. 不要分点、不要长段落、不要"具有重要意义""意义深远"这类套话，也不要照抄原文段落。
+6. tags 写 2~3 个考生能记住的考点关键词（机构名、文件名、数字、主题词）。`;
 }
 
 async function refineWithLlm(candidates, options) {
@@ -598,7 +782,7 @@ async function refineWithLlm(candidates, options) {
       const origin = candidates[index];
       if (!origin) continue;
       const title = cleanText(entry.title, 60);
-      const summary = cleanText(entry.summary, 240);
+      const summary = firstSentence(cleanText(entry.summary, 240), options.summaryMax || 48);
       if (title.length < 6 || summary.length < 10) continue;
       const category = String(entry.category || '').trim() || origin.category;
       const tags = Array.isArray(entry.tags) ? entry.tags.slice(0, 3).map((tag) => cleanText(tag, 12)) : [];
@@ -611,6 +795,7 @@ async function refineWithLlm(candidates, options) {
         source: origin.source,
         link: origin.link,
         published: origin.published ? toIsoSeconds(origin.published) : null,
+        body: '',
         kind: 'news'
       });
     }
@@ -657,7 +842,9 @@ async function collect(configObject, args) {
         }
         const outcome = source.type === 'html_links'
           ? parseHtmlLinks(body, source)
-          : parseFeed(body, source);
+          : source.type === 'embedded_objects'
+            ? parseEmbeddedObjects(body, source)
+            : parseFeed(body, source);
         items = outcome.items;
         if (outcome.note) notes.push(outcome.note);
       }
@@ -705,18 +892,40 @@ async function collect(configObject, args) {
   return { scored, selected: selectWithQuotas(scored, configObject), statuses };
 }
 
-function extractiveItems(scored, maxItems) {
+function extractiveItems(scored, maxItems, summaryMax) {
   return scored.slice(0, maxItems).map((item) => ({
     id: itemId(item),
     title: item.title,
-    summary: item.summary || '（这条来自政策列表页，点开原文查看详情）',
+    // 短评风格：只留第一句话，控制在 summaryMax 字以内；不能当短评用的噪声直接空掉
+    summary: isWeakSummary(item.summary, item.title) ? '' : firstSentence(item.summary, summaryMax),
     category: item.category,
     tags: item.tags,
     source: item.source,
     link: item.link,
     published: item.published ? toIsoSeconds(item.published) : null,
+    body: '',
     kind: 'news'
   }));
+}
+
+/// 抓每条要点的正文，塞进 JSON，App 内点进去就能直接读，不用跳网页。
+async function attachBodies(items, maxChars) {
+  let ok = 0;
+  await Promise.all(items.map(async (item) => {
+    if (!item.link || !item.link.startsWith('http')) return;
+    try {
+      const html = await fetchText(item.link);
+      const body = extractArticleText(html, maxChars);
+      if (body.length >= 80) {
+        item.body = body;
+        ok += 1;
+      }
+    } catch {
+      // 抓不到就留空，App 会退回只显示要点摘要
+    }
+  }));
+  log(`正文抓取完成：${ok}/${items.length} 条可在 App 内直接阅读`);
+  return ok;
 }
 
 function writeOutputs(outDir, digest, today) {
@@ -750,6 +959,14 @@ function writeOutputs(outDir, digest, today) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const configObject = JSON.parse(fs.readFileSync(args.config, 'utf8'));
+
+  if (args.probeUrl) {
+    const html = await fetchText(args.probeUrl);
+    const text = extractArticleText(html, 1200);
+    console.log(`=== ${args.probeUrl} ===\n${text || '(没有抽到正文)'}`);
+    return;
+  }
+
   const today = beijingToday(args.today);
   const maxItems = configObject.max_items ?? 10;
   const minItems = configObject.min_items ?? 5;
@@ -766,11 +983,15 @@ async function main() {
 
   const llmItems = await refineWithLlm(selected, {
     maxItems,
+    summaryMax: configObject.summary_max ?? 48,
     today,
     noLlm: args.noLlm || Boolean(args.fixtureDir)
   });
-  const items = llmItems ?? extractiveItems(selected, maxItems);
+  const items = llmItems ?? extractiveItems(selected, maxItems, configObject.summary_max ?? 48);
   const method = llmItems ? 'llm' : 'extractive';
+
+  log('抓取正文（App 内直接阅读用）…');
+  await attachBodies(items, configObject.body_max_chars ?? 1200);
 
   const digest = {
     date: today,

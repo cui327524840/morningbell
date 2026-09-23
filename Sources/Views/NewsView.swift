@@ -1,6 +1,5 @@
 import SwiftUI
 import UIKit
-import WebKit
 
 /// 时政页：上面切换「每日要点」和「新闻流」两种看法。
 struct NewsView: View {
@@ -101,7 +100,7 @@ struct NewsStreamView: View {
         }
         .listStyle(.insetGrouped)
         .sheet(item: $selectedItem) { item in
-            NewsDetailView(item: item)
+            ArticleReaderView(item: item)
         }
         .onAppear {
             if news.items.isEmpty {
@@ -157,46 +156,6 @@ struct NewsRow: View {
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.dateFormat = "M月d日 HH:mm"
         return formatter.string(from: date)
-    }
-}
-
-struct NewsDetailView: View {
-    @Environment(\.presentationMode) private var presentationMode
-    let item: NewsItem
-
-    var body: some View {
-        NavigationView {
-            Group {
-                if let url = URL(string: item.link), !item.link.isEmpty {
-                    WebView(url: url)
-                } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(item.title).font(.headline)
-                            Text(item.summary).font(.body)
-                        }
-                        .padding()
-                    }
-                }
-            }
-            .navigationTitle(item.source)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("关闭") { presentationMode.wrappedValue.dismiss() }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        if let url = URL(string: item.link) {
-                            UIApplication.shared.open(url)
-                        }
-                    } label: {
-                        Image(systemName: "safari")
-                    }
-                }
-            }
-        }
-        .navigationViewStyle(.stack)
     }
 }
 
@@ -258,30 +217,5 @@ struct NewsSourceListView: View {
         }
         .navigationTitle("新闻流来源")
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-/// 用系统 WebView 打开原文，避免跳转 Safari 打断阅读。
-struct WebView: UIViewRepresentable {
-    let url: URL
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView()
-        webView.allowsBackForwardNavigationGestures = true
-        return webView
-    }
-
-    func updateUIView(_ webView: WKWebView, context: Context) {
-        guard context.coordinator.loadedURL != url else { return }
-        context.coordinator.loadedURL = url
-        webView.load(URLRequest(url: url))
-    }
-
-    final class Coordinator {
-        var loadedURL: URL?
     }
 }
