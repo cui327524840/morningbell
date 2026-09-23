@@ -321,6 +321,39 @@ final class DigestService: ObservableObject {
         }
         return "今日时政要点，" + parts.joined(separator: "；")
     }
+
+    /// 起床播报用的「标题 + 要点详情」，内容更完整。
+    func spokenDigest(limit: Int = 2) -> String? {
+        let all = digest?.newsItems ?? []
+        let items = Array(all.prefix(limit))
+        guard !items.isEmpty else { return nil }
+        var parts = ["今日时政要点，共\(all.count)条"]
+        for (index, item) in items.enumerated() {
+            parts.append("第\(index + 1)条，\(item.title)。\(item.summary)")
+        }
+        return parts.joined(separator: "。")
+    }
+
+    /// 单条朗读用的文字。
+    func speechText(for item: DigestItem) -> String {
+        var text = ""
+        if !item.category.isEmpty {
+            text += "\(item.category)。"
+        }
+        text += "\(item.title)。"
+        if !item.summary.isEmpty {
+            text += item.summary
+        }
+        return text
+    }
+
+    /// 整篇朗读用的队列。
+    func speechQueue() -> [(id: String?, text: String)] {
+        let items = digest?.newsItems ?? []
+        return items.enumerated().map { index, item in
+            (id: item.id as String?, text: "第\(index + 1)条，\(speechText(for: item))")
+        }
+    }
 }
 
 enum DigestStore {

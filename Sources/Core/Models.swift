@@ -14,8 +14,10 @@ struct Alarm: Identifiable, Codable, Equatable {
     var soundFileName: String?
     var speakTime: Bool = true
     var speakWeather: Bool = true
-    /// 起床时顺带播报今日时政头条。
-    var speakNews: Bool = false
+    /// 起床时顺带播报今日时政要点（默认打开，这是这个 App 的主打功能）。
+    var speakNews: Bool = true
+    /// 播报时除了标题，是否连要点详情一起念（内容更完整，时间也更长）。
+    var speakNewsDetail: Bool = false
     /// 该闹钟单独指定的城市；为空则使用设置里的默认城市。
     var cityName: String = ""
 
@@ -36,6 +38,31 @@ struct Alarm: Identifiable, Codable, Equatable {
 
     var wantsSpeech: Bool {
         speakTime || speakWeather || speakNews
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, hour, minute, label, weekdays, isEnabled, snoozeMinutes
+        case soundFileName, speakTime, speakWeather, speakNews, speakNewsDetail, cityName
+    }
+
+    init() {}
+
+    /// 自己实现解码：以后往 Alarm 里加字段时，旧数据也能正常读出来，不会丢闹钟。
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        hour = try container.decodeIfPresent(Int.self, forKey: .hour) ?? 6
+        minute = try container.decodeIfPresent(Int.self, forKey: .minute) ?? 50
+        label = try container.decodeIfPresent(String.self, forKey: .label) ?? "起床"
+        weekdays = try container.decodeIfPresent(Set<Int>.self, forKey: .weekdays) ?? []
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        snoozeMinutes = try container.decodeIfPresent(Int.self, forKey: .snoozeMinutes) ?? 5
+        soundFileName = try container.decodeIfPresent(String.self, forKey: .soundFileName)
+        speakTime = try container.decodeIfPresent(Bool.self, forKey: .speakTime) ?? true
+        speakWeather = try container.decodeIfPresent(Bool.self, forKey: .speakWeather) ?? true
+        speakNews = try container.decodeIfPresent(Bool.self, forKey: .speakNews) ?? true
+        speakNewsDetail = try container.decodeIfPresent(Bool.self, forKey: .speakNewsDetail) ?? false
+        cityName = try container.decodeIfPresent(String.self, forKey: .cityName) ?? ""
     }
 }
 

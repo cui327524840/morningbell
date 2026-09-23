@@ -55,6 +55,7 @@ struct MorningBellApp: App {
         LaunchLog.mark("通知回调注册完成")
         engine.configure(store: store, settings: settings)
         digest.configure(settings: settings)
+        SpeechService.shared.configure(settings: settings)
         LaunchLog.mark("依赖注入完成")
         engine.requestAuthorizationIfNeeded { _ in }
         LaunchLog.mark("通知授权已发起")

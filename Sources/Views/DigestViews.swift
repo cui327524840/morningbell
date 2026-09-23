@@ -3,6 +3,7 @@ import SwiftUI
 /// 每日时政要点：编号列表 + 展开要点 + 标记已读 + 读原文。
 struct DigestView: View {
     @EnvironmentObject private var digestService: DigestService
+    @ObservedObject private var speech = SpeechService.shared
 
     @State private var expanded: Set<String> = []
     @State private var selectedItem: DigestItem?
@@ -27,8 +28,10 @@ struct DigestView: View {
                               item: pair.element,
                               isRead: digestService.isRead(pair.element),
                               isExpanded: expanded.contains(pair.element.id),
+                              isSpeaking: speech.isSpeaking && speech.currentID == pair.element.id,
                               onToggleExpand: { toggleExpand(pair.element.id) },
                               onToggleRead: { digestService.toggleRead(pair.element) },
+                              onSpeak: { toggleSpeak(pair.element) },
                               onOpen: {
                                   if !pair.element.link.isEmpty {
                                       selectedItem = pair.element
@@ -94,6 +97,13 @@ struct DigestView: View {
 
             HStack(spacing: 12) {
                 Button {
+                    toggleSpeakAll()
+                } label: {
+                    Text(speech.isSpeaking ? "停止朗读" : "朗读全部")
+                }
+                .buttonStyle(CompactActionButtonStyle())
+
+                Button {
                     digestService.refresh()
                 } label: {
                     Text("立即更新")
@@ -135,6 +145,22 @@ struct DigestView: View {
         }
     }
 
+    private func toggleSpeak(_ item: DigestItem) {
+        if speech.isSpeaking && speech.currentID == item.id {
+            speech.stop()
+        } else {
+            speech.speak(digestService.speechText(for: item), id: item.id)
+        }
+    }
+
+    private func toggleSpeakAll() {
+        if speech.isSpeaking {
+            speech.stop()
+        } else {
+            speech.speakAll(digestService.speechQueue())
+        }
+    }
+
 }
 
 /// iOS 14 也能用的紧凑按钮样式（替代 iOS 15 才有的 .bordered 系列）。
@@ -155,8 +181,10 @@ struct DigestRow: View {
     let item: DigestItem
     let isRead: Bool
     let isExpanded: Bool
+    let isSpeaking: Bool
     let onToggleExpand: () -> Void
     let onToggleRead: () -> Void
+    let onSpeak: () -> Void
     let onOpen: () -> Void
 
     var body: some View {
@@ -204,11 +232,12 @@ struct DigestRow: View {
             }
 
             HStack(spacing: 16) {
-                Button(isExpanded ? "收起" : "展开要点") { onToggleExpand() }
+                Button(isSpeaking ? "停止朗读" : "朗读") { onSpeak() }
                 if !item.link.isEmpty {
                     Button("读原文") { onOpen() }
                 }
                 Spacer()
+                Button(isExpanded ? "收起" : "展开要点") { onToggleExpand() }
                 Button(isRead ? "取消已读" : "标记已读") { onToggleRead() }
             }
             .font(.footnote)

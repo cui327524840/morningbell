@@ -78,6 +78,10 @@ struct AlarmEditView: View {
                     Toggle("播报当前时间", isOn: $draft.speakTime)
                     Toggle("播报今日天气", isOn: $draft.speakWeather)
                     Toggle("播报时政头条", isOn: $draft.speakNews)
+                    if draft.speakNews {
+                        Toggle("连要点详情一起念（更长）", isOn: $draft.speakNewsDetail)
+                            .padding(.leading, 8)
+                    }
                     HStack {
                         Text("城市")
                         Spacer()

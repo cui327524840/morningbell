@@ -348,8 +348,11 @@ final class AlarmEngine: NSObject, ObservableObject {
             parts.append(timeGreeting())
         }
         if alarm.speakNews {
-            if let headlines = DigestService.shared.spokenHeadlines(limit: 2) {
-                parts.append(headlines)
+            let digestText = alarm.speakNewsDetail
+                ? DigestService.shared.spokenDigest(limit: 2)
+                : DigestService.shared.spokenHeadlines(limit: 2)
+            if let digestText = digestText {
+                parts.append(digestText)
             } else if let fallback = NewsService.shared.topHeadlines(limit: 2) {
                 parts.append(fallback)
             }
