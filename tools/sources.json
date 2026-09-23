@@ -1,0 +1,128 @@
+{
+  "max_items": 10,
+  "min_items": 5,
+  "publish_floor": 3,
+  "max_age_days": 4,
+  "selection": {
+    "max_per_source": 4,
+    "max_per_kind": { "policy": 3, "comment": 4 }
+  },
+  "kind_bonus": { "policy": 5, "comment": 0, "news": 0 },
+  "penalties": ["直播", "图集", "图说", "视频", "花絮", "广告", "招聘", "预告", "海报"],
+  "url_penalties": ["photo.", "/photo/", "v.cctv.com", "/video/", "gallery"],
+  "categories": {
+    "政治": ["习近平", "中央", "国务院", "政治局", "全会", "全国人大", "政协", "重要讲话", "决策部署", "党组", "纪委", "党建"],
+    "经济": ["经济", "财政", "货币政策", "金融", "GDP", "消费", "投资", "外贸", "出口", "税收", "就业", "产业链", "制造业", "民营经济", "稳增长", "物价"],
+    "民生": ["民生", "社保", "医保", "养老", "住房", "食品安全", "物价", "医疗", "救助", "供水", "供电", "供暖", "教育", "就业"],
+    "法治": ["法治", "法律", "立法", "司法", "检察", "监察", "条例", "修订", "依法办事", "行政法规"],
+    "科技": ["科技", "创新", "人工智能", "芯片", "航天", "量子", "生物医药", "新能源", "算力", "5G", "重大专项", "新质生产力"],
+    "生态": ["生态", "环保", "碳达峰", "碳中和", "绿色", "污染", "长江", "黄河", "能源保供"],
+    "文化": ["文化", "文明", "遗产", "非遗", "旅游", "出版", "思政", "高考"],
+    "外交": ["外交", "外长", "峰会", "双边", "会晤", "联合国", "一带一路", "自贸", "全球治理", "上合"],
+    "乡村": ["乡村振兴", "三农", "粮食", "农业", "农村", "耕地", "脱贫", "种植"],
+    "评论": ["评论", "锐评", "时评", "网评", "短评", "今日谈", "声音", "观察", "漫评", "青平", "任平", "仲音"]
+  },
+  "sources": [
+    {
+      "name": "中国政府网 · 政策文件库",
+      "type": "json",
+      "url": "https://sousuo.www.gov.cn/search-gov/data?t=zhengcelibrary_gw&q=&timetype=timeqb&mintime=&maxtime=&sort=pubtime&sortType=1&searchfield=title&p=1&n=20&type=gwyzcwjk",
+      "page_param": "p",
+      "pages": 2,
+      "headers": { "Referer": "https://www.gov.cn/zhengce/zhengceku/" },
+      "list_path": "searchVO.listVO",
+      "title_field": "title",
+      "url_field": "url",
+      "date_field": "pubtimeStr",
+      "summary_field": "summary",
+      "keywords_field": "subjectword",
+      "kind": "policy",
+      "max_age_days": 12,
+      "weight": 3
+    },
+    {
+      "name": "央视新闻 · 要闻",
+      "type": "json",
+      "url": "https://news.cctv.com/2019/07/gaiban/cmsdatainterface/page/news_1.jsonp?cb=news",
+      "list_path": "data.list",
+      "title_field": "title",
+      "url_field": "url",
+      "date_field": "focus_date",
+      "summary_field": "brief",
+      "keywords_field": "keywords",
+      "kind": "news",
+      "weight": 3
+    },
+    {
+      "name": "央视新闻 · 国内",
+      "type": "json",
+      "url": "https://news.cctv.com/2019/07/gaiban/cmsdatainterface/page/china_1.jsonp?cb=china",
+      "list_path": "data.list",
+      "title_field": "title",
+      "url_field": "url",
+      "date_field": "focus_date",
+      "summary_field": "brief",
+      "keywords_field": "keywords",
+      "kind": "news",
+      "weight": 3
+    },
+    {
+      "name": "人民日报 · 观点评论",
+      "type": "html_links",
+      "url": "http://opinion.people.com.cn/",
+      "include": "\\.html$",
+      "kind": "comment",
+      "max_age_days": 7,
+      "weight": 3
+    },
+    {
+      "name": "新华网评",
+      "type": "html_links",
+      "url": "http://www.news.cn/comments/",
+      "include": "\\.(html|shtml)$",
+      "kind": "comment",
+      "max_age_days": 7,
+      "weight": 3
+    },
+    {
+      "name": "半月谈",
+      "type": "html_links",
+      "url": "http://www.banyuetan.org/",
+      "include": "\\.(html|htm|shtml)$",
+      "kind": "news",
+      "max_age_days": 7,
+      "weight": 3
+    },
+    {
+      "name": "新华网 · 时政",
+      "type": "html_links",
+      "url": "http://www.news.cn/politics/",
+      "include": "\\.(html|shtml)$",
+      "kind": "news",
+      "weight": 3
+    },
+    {
+      "name": "求是网",
+      "type": "html_links",
+      "url": "https://www.qstheory.cn/",
+      "include": "\\.(html|htm|shtml)$",
+      "kind": "comment",
+      "max_age_days": 7,
+      "weight": 2
+    },
+    {
+      "name": "中国新闻网 · 滚动",
+      "type": "rss",
+      "url": "https://www.chinanews.com.cn/rss/scroll-news.xml",
+      "kind": "news",
+      "weight": 2
+    },
+    {
+      "name": "中国新闻网 · 国内",
+      "type": "rss",
+      "url": "https://www.chinanews.com.cn/rss/china.xml",
+      "kind": "news",
+      "weight": 2
+    }
+  ]
+}

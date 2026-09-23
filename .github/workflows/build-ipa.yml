@@ -1,0 +1,52 @@
+name: build-ipa
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: 打印工具链版本（排查用）
+        run: |
+          xcodebuild -version
+          xcode-select -p
+      - name: 安装 XcodeGen
+        run: brew install xcodegen
+      - name: 把最新的时政要点打进 App（离线快照）
+        run: |
+          if [ -f data/digest-latest.json ]; then
+            cp data/digest-latest.json Resources/digest-seed.json
+            echo "已注入 data/digest-latest.json"
+          else
+            echo "仓库里还没有 data/digest-latest.json，使用默认内置快照"
+          fi
+      - name: 生成 Xcode 工程
+        run: xcodegen generate
+      - name: 编译（不签名）
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project MorningBell.xcodeproj \
+            -scheme MorningBell \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: 打包成未签名 IPA
+        run: |
+          mkdir -p Payload
+          cp -R "build/Build/Products/Release-iphoneos/MorningBell.app" Payload/
+          zip -qry MorningBell-unsigned.ipa Payload
+      - name: 上传 IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MorningBell-unsigned-ipa
+          path: MorningBell-unsigned.ipa
+          if-no-files-found: error

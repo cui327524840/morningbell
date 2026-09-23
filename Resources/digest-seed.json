@@ -1,0 +1,54 @@
+{
+  "date": "",
+  "generatedAt": null,
+  "method": "seed",
+  "degraded": true,
+  "count": 4,
+  "items": [
+    {
+      "id": "seed-1",
+      "title": "每日要点还没生成：先把仓库名填上",
+      "summary": "5~10 条要点由 GitHub Actions 每天自动抓取生成。到「设置 → 每日时政要点 → 接口设置」填入你的仓库（用户名/仓库名，例如 zhangsan/morningbell），再点「立即更新」，这里就会显示当天的要点。",
+      "category": "使用说明",
+      "tags": ["首次设置"],
+      "source": "晨钟",
+      "link": "",
+      "published": null,
+      "kind": "notice"
+    },
+    {
+      "id": "seed-2",
+      "title": "内容每天 05:30 自动更新",
+      "summary": "仓库里的 build-digest 工作流每天北京时间 05:30 抓取政策文件与权威媒体，按国考相关性打分、去重，输出 5~10 条要点。也可以随时在 Actions 页面手动点一次运行。",
+      "category": "使用说明",
+      "tags": ["更新机制"],
+      "source": "晨钟",
+      "link": "",
+      "published": null,
+      "kind": "notice"
+    },
+    {
+      "id": "seed-3",
+      "title": "三层兜底：镜像、缓存、内置快照",
+      "summary": "App 会依次尝试 jsDelivr、GitHub Raw、Gitee 三个镜像地址；都连不上就用手机里的上次缓存；再没有就用这份随 IPA 打包的内置快照。所以断网也不会白屏。",
+      "category": "使用说明",
+      "tags": ["稳定性"],
+      "source": "晨钟",
+      "link": "",
+      "published": null,
+      "kind": "notice"
+    },
+    {
+      "id": "seed-4",
+      "title": "想要更像老师划的重点，就配上大模型",
+      "summary": "在仓库 Secrets 里加一个 DIGEST_LLM_KEY（任何 OpenAI 兼容接口都行，地址和模型名放在 Variables 里），生成器会把当天候选交给模型提炼成 60~120 字的要点说明和考点标签；不配也能用，只是变成抽取式摘要。",
+      "category": "使用说明",
+      "tags": ["可选增强"],
+      "source": "晨钟",
+      "link": "",
+      "published": null,
+      "kind": "notice"
+    }
+  ],
+  "sources": []
+}
