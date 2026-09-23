@@ -465,7 +465,10 @@ enum NotificationScheduler {
             content.categoryIdentifier = categoryId
             content.userInfo = ["alarmId": alarm.id.uuidString]
             if critical {
-                content.interruptionLevel = .critical
+                // 重要警告是 iOS 15 才有的能力，旧系统上自动跳过
+                if #available(iOS 15.0, *) {
+                    content.interruptionLevel = .critical
+                }
             }
 
             let weekdays: [Int] = alarm.weekdays.isEmpty ? [0] : Array(alarm.weekdays)

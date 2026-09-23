@@ -78,6 +78,10 @@ struct NewsStreamView: View {
             }
 
             Section {
+                Button("刷新新闻流") {
+                    news.refresh(sources: settings.newsSources)
+                }
+                .disabled(news.isLoading)
                 ForEach(news.items) { item in
                     Button {
                         selectedItem = item
@@ -96,9 +100,6 @@ struct NewsStreamView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .refreshable {
-            news.refresh(sources: settings.newsSources)
-        }
         .sheet(item: $selectedItem) { item in
             NewsDetailView(item: item)
         }

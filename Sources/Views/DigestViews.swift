@@ -43,9 +43,6 @@ struct DigestView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .refreshable {
-            await refreshAsync()
-        }
         .sheet(item: $selectedItem) { item in
             NewsDetailView(item: NewsItem(title: item.title,
                                           link: item.link,
@@ -100,10 +97,8 @@ struct DigestView: View {
                     digestService.refresh()
                 } label: {
                     Text("立即更新")
-                        .font(.footnote)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .buttonStyle(CompactActionButtonStyle())
 
                 NavigationLink(destination: DigestSetupView()) {
                     Text("要点接口").font(.footnote)
@@ -140,12 +135,18 @@ struct DigestView: View {
         }
     }
 
-    private func refreshAsync() async {
-        await withCheckedContinuation { continuation in
-            digestService.refresh {
-                continuation.resume()
-            }
-        }
+}
+
+/// iOS 14 也能用的紧凑按钮样式（替代 iOS 15 才有的 .bordered 系列）。
+struct CompactActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.footnote)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Color(.secondarySystemFill)))
+            .foregroundColor(.accentColor)
+            .opacity(configuration.isPressed ? 0.6 : 1.0)
     }
 }
 
@@ -241,7 +242,6 @@ struct DigestSetupView: View {
                 TextField("用户名/仓库名，例如 zhangsan/morningbell", text: $repoDraft)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
-                    .onSubmit { applyRepo() }
                 Button("保存并更新") {
                     applyRepo()
                     digestService.refresh()

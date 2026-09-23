@@ -1,8 +1,12 @@
+import Combine
 import SwiftUI
 
 struct RingingView: View {
     @EnvironmentObject private var engine: AlarmEngine
     let alarm: Alarm
+
+    @State private var now = Date()
+    private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
@@ -15,12 +19,9 @@ struct RingingView: View {
             VStack(spacing: 16) {
                 Spacer()
 
-                TimelineView(.periodic(from: Date(), by: 1)) { context in
-                    Text(Self.clockText(context.date))
-                        .font(.system(size: 68, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundColor(.white)
-                }
+                Text(Self.clockText(now))
+                    .font(.system(size: 68, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundColor(.white)
 
                 Text(alarm.label.isEmpty ? "闹钟" : alarm.label)
                     .font(.title3)
@@ -71,6 +72,7 @@ struct RingingView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
         }
+        .onReceive(clock) { now = $0 }
     }
 
     private static func clockText(_ date: Date) -> String {

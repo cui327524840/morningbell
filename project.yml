@@ -5,11 +5,12 @@ options:
   bundleIdPrefix: com.example
   createIntermediateGroups: true
   deploymentTarget:
-    iOS: "15.0"
+    # 兼容 iPhone 6s 上的 iOS 14.x（用户实测机型就是 6s / iOS 14.5）
+    iOS: "14.0"
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    IPHONEOS_DEPLOYMENT_TARGET: "15.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "14.0"
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
     # 1 = 仅 iPhone（不含 iPad）。这样界面按手机尺寸设计即可。

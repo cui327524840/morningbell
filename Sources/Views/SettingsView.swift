@@ -83,7 +83,6 @@ struct SettingsView: View {
                         Spacer()
                         TextField("北京", text: $cityDraft)
                             .multilineTextAlignment(.trailing)
-                            .onSubmit { applyCity() }
                     }
                     Button("更新天气") { applyCity() }
                     if let snapshot = weather.snapshot {

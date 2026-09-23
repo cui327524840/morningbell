@@ -96,8 +96,7 @@ struct AlarmRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(alarm.timeText)
-                    .font(.system(size: 34, weight: .light, design: .rounded))
-                    .monospacedDigit()
+                    .font(.system(size: 34, weight: .light, design: .rounded).monospacedDigit())
                 Text("\(alarm.label) · \(alarm.repeatText)")
                     .font(.footnote)
                     .foregroundColor(.secondary)
