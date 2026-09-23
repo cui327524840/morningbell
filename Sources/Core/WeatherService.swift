@@ -128,9 +128,10 @@ final class WeatherService: ObservableObject {
             }
             let current = decoded.current
             let daily = decoded.daily
-            let code = current?.weather_code ?? daily?.weather_code?.first ?? -1
-            let high = daily?.temperature_2m_max?.first ?? current?.temperature_2m ?? 0
-            let low = daily?.temperature_2m_min?.first ?? current?.temperature_2m ?? 0
+            // 显式标注类型：?? 链里混了整数字面量时，Swift 会推断成 Any? 而编译失败
+            let code: Int = current?.weather_code ?? daily?.weather_code?.first ?? -1
+            let high: Double = daily?.temperature_2m_max?.first ?? current?.temperature_2m ?? 0
+            let low: Double = daily?.temperature_2m_min?.first ?? current?.temperature_2m ?? 0
             let snapshot = WeatherSnapshot(cityName: cityName,
                                            temperature: current?.temperature_2m ?? high,
                                            apparentTemperature: current?.apparent_temperature ?? current?.temperature_2m ?? high,
