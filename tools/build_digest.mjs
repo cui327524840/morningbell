@@ -457,11 +457,28 @@ function isWeakSummary(summary, title) {
   if (/据[^，。；]{0,16}(公众号|微博|客户端|消息|报道)/.test(text)) return true;
   if (/(国办函|国发〔|国办发〔|号）|印发的通知)/.test(text)) return true;
   if (/^[\u4e00-\u9fa5]{2,12}(办公厅|部门|委员会|总局)\s*(关于|转发|印发)/.test(text)) return true;
-  // 既没有数字、也没有动作词，多半是抒情式导语或空话，不能当短评
+  // 抒情、应景式开头（飘香、渐近之类）不是每日时政的语气，丢掉摘要只留标题
+  if (/(飘香|渐近|渐浓|秋月|金秋|稻谷|瓜果|佳节|团圆|花开|春意)/.test(text)) return true;
+  // 又短、又没有数字、也没有动作词，基本是空话
   const hasNumber = /\d/.test(text);
-  const hasAction = /(部署|印发|发布|通过|签署|增长|下降|达到|宣布|启动|完成|实现|要求|明确|提出|决定|数据|预计|突破|新增|同比|会议|规划)/.test(text);
-  if (!hasNumber && !hasAction) return true;
+  const hasAction = /(部署|印发|发布|通过|签署|增长|下降|达到|宣布|启动|完成|实现|要求|明确|提出|决定|数据|预计|突破|新增|同比|会议|规划|推进|开展|出台|实施|举行|召开|表示|介绍)/.test(text);
+  if (!hasNumber && !hasAction && text.length < 30) return true;
   return false;
+}
+
+/// 从正文里挑一句最适合当「每日时政」简报的话：跳过抒情开头、公众号导语这类句子。
+function bestBriefSentence(text, max) {
+  const clean = String(text || '').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  const sentences = clean.match(/[^。！？!?]+[。！？!?]?/g) || [];
+  for (const sentence of sentences.slice(0, 8)) {
+    const trimmed = sentence.trim();
+    if (trimmed.length < 18) continue;
+    if (isWeakSummary(trimmed, '')) continue;
+    const brief = firstSentence(trimmed, max);
+    if (brief.length >= 18) return brief;
+  }
+  return '';
 }
 
 /// 通用 JSON / JSONP 列表接口解析：列表路径和字段名都在配置里指定。
@@ -909,7 +926,7 @@ function extractiveItems(scored, maxItems, summaryMax) {
 }
 
 /// 抓每条要点的正文，塞进 JSON，App 内点进去就能直接读，不用跳网页。
-async function attachBodies(items, maxChars) {
+async function attachBodies(items, maxChars, summaryMax) {
   let ok = 0;
   await Promise.all(items.map(async (item) => {
     if (!item.link || !item.link.startsWith('http')) return;
@@ -919,6 +936,11 @@ async function attachBodies(items, maxChars) {
       if (body.length >= 80) {
         item.body = body;
         ok += 1;
+        // 没有摘要时，用正文第一句补一条一句话简报（不依赖模型也有内容）
+        if (!item.summary) {
+          const candidate = bestBriefSentence(body, summaryMax);
+          if (candidate) item.summary = candidate;
+        }
       }
     } catch {
       // 抓不到就留空，App 会退回只显示要点摘要
@@ -991,7 +1013,7 @@ async function main() {
   const method = llmItems ? 'llm' : 'extractive';
 
   log('抓取正文（App 内直接阅读用）…');
-  await attachBodies(items, configObject.body_max_chars ?? 1200);
+  await attachBodies(items, configObject.body_max_chars ?? 1200, configObject.summary_max ?? 48);
 
   const digest = {
     date: today,
