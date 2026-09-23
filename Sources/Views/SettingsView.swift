@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var weather: WeatherService
     @EnvironmentObject private var news: NewsService
     @EnvironmentObject private var digestService: DigestService
+    @ObservedObject private var speech = SpeechService.shared
 
     @State private var cityDraft = ""
     @State private var criticalMessage = ""
@@ -68,13 +69,61 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
 
-                Section(header: Text("语音播报")) {
+                Section(header: Text("语音音色")) {
                     Toggle("启用语音", isOn: $settings.voiceEnabled)
                     HStack {
                         Text("语速")
                         Slider(value: $settings.speechRate, in: 0.3...0.6)
                     }
                     Button("试听一段播报") { engine.previewSpeech() }
+
+                    Picker("系统音色", selection: $settings.voiceIdentifier) {
+                        Text("自动（设备上最好的）").tag("")
+                        ForEach(SpeechService.chineseVoices(), id: \.identifier) { voice in
+                            Text("\(voice.name)（\(SpeechService.qualityText(voice))·\(voice.language)）")
+                                .tag(voice.identifier)
+                        }
+                    }
+                    Text("设备自带的中文朗读偏机械。到「设置 → 辅助功能 → 朗读内容 → 声音 → 中文（普通话）」里下载「增强」或「Siri」音色，回到这里选中它，听感会自然不少。")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+
+                Section(header: Text("云端真人语音（可选）")) {
+                    Toggle("启用云端语音（微软 Azure）", isOn: $settings.cloudVoiceEnabled)
+                    HStack {
+                        Text("区域")
+                        Spacer()
+                        TextField("eastasia", text: $settings.cloudTTSRegion)
+                            .multilineTextAlignment(.trailing)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                    }
+                    HStack {
+                        Text("音色")
+                        Spacer()
+                        TextField("zh-CN-XiaoxiaoNeural", text: $settings.cloudTTSVoice)
+                            .multilineTextAlignment(.trailing)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                    }
+                    SecureField("订阅密钥", text: $settings.cloudTTSKey)
+                    HStack(spacing: 16) {
+                        Button("试听云端语音") { engine.previewSpeech() }
+                        Button("清空语音缓存") { CloudTTSService.shared.clearCache() }
+                    }
+                    if let error = speech.lastError {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundColor(.red)
+                    }
+                    Text("""
+                    系统自带朗读听起来偏机械，这是它的上限。想要接近真人，用微软 Azure 语音服务的神经音色：推荐 zh-CN-XiaoxiaoNeural（晓晓，女声亲切）或 zh-CN-YunxiNeural（云希，男声沉稳）。
+                    在 Azure 免费开通「语音服务」，把「区域」（例如 eastasia）和「密钥」填到上面即可，每月 50 万字符免费额度，闹钟播报完全用不完。
+                    云端失败会自动退回系统音色，不会出现闹钟不开口的情况。
+                    """)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
                 }
 
                 Section(header: Text("天气")) {
@@ -146,6 +195,7 @@ struct SettingsView: View {
                     infoRow("机型", DeviceInfo.friendlyName)
                     infoRow("硬件标识", DeviceInfo.hardwareIdentifier)
                     infoRow("系统版本", DeviceInfo.systemVersion)
+                    infoRow("当前音色", speech.currentVoiceDescription)
                     infoRow("通知权限", engine.authorizationText)
                     infoRow("重要警告", engine.criticalAlertsAvailable ? "可用" : "不可用")
                     infoRow("后台保活", BackgroundKeeper.shared.isRunning ? "运行中" : (BackgroundKeeper.shared.isEnabled ? "未运行" : "已关闭"))

@@ -18,7 +18,7 @@ struct AlarmEditView: View {
 
     init(alarm: Alarm, isNew: Bool) {
         _draft = State(initialValue: alarm)
-        _soundID = State(initialValue: alarm.soundFileName ?? "default")
+        _soundID = State(initialValue: alarm.soundFileName ?? SoundLibrary.defaultSoundName)
         self.isNew = isNew
     }
 
@@ -66,7 +66,7 @@ struct AlarmEditView: View {
                             Spacer()
                             Button("删除") {
                                 soundLibrary.delete(fileName: file.lastPathComponent)
-                                if soundID == file.lastPathComponent { soundID = "default" }
+                                if soundID == file.lastPathComponent { soundID = SoundLibrary.defaultSoundName }
                             }
                             .font(.subheadline)
                             .foregroundColor(.red)
@@ -173,7 +173,7 @@ struct AlarmEditView: View {
 
     private func save() {
         var alarm = draft
-        alarm.soundFileName = soundID == "default" ? nil : soundID
+        alarm.soundFileName = soundID
         if isNew {
             store.add(alarm)
         } else {
@@ -199,7 +199,7 @@ struct AlarmEditView: View {
             stopPreview()
             return
         }
-        guard let url = SoundLibrary.shared.url(for: soundID == "default" ? nil : soundID),
+        guard let url = SoundLibrary.shared.url(for: soundID),
               let player = try? AVAudioPlayer(contentsOf: url) else { return }
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default, options: [])

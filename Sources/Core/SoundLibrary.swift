@@ -10,7 +10,14 @@ struct SoundOption: Identifiable, Equatable {
 /// 铃声来源：内置铃声 + 用户自己放进 App 文档目录的音频。
 final class SoundLibrary: ObservableObject {
     static let shared = SoundLibrary()
-    static let bundledSoundName = "alarm_default"
+    /// 新闹钟默认用轻音乐（起床时先放轻音乐，再由语音播报）。
+    static let defaultSoundName = "alarm_soft"
+
+    /// 内置铃声：文件名 → 显示名
+    static let bundledSounds: [(name: String, title: String)] = [
+        ("alarm_soft", "轻音乐（柔和）"),
+        ("alarm_default", "经典闹铃")
+    ]
 
     @Published var importedFiles: [URL] = []
 
@@ -22,8 +29,8 @@ final class SoundLibrary: ObservableObject {
         refresh()
     }
 
-    var bundledURL: URL? {
-        Bundle.main.url(forResource: Self.bundledSoundName, withExtension: "wav")
+    func bundledURL(name: String) -> URL? {
+        Bundle.main.url(forResource: name, withExtension: "wav")
     }
 
     func refresh() {
@@ -36,7 +43,12 @@ final class SoundLibrary: ObservableObject {
     }
 
     var options: [SoundOption] {
-        var list = [SoundOption(id: "default", title: "内置闹铃", url: bundledURL)]
+        var list: [SoundOption] = []
+        for entry in Self.bundledSounds {
+            guard let url = bundledURL(name: entry.name) else { continue }
+            let mark = entry.name == Self.defaultSoundName ? "（默认）" : ""
+            list.append(SoundOption(id: entry.name, title: entry.title + mark, url: url))
+        }
         for file in importedFiles {
             list.append(SoundOption(id: file.lastPathComponent,
                                     title: file.deletingPathExtension().lastPathComponent,
@@ -46,10 +58,11 @@ final class SoundLibrary: ObservableObject {
     }
 
     func url(for fileName: String?) -> URL? {
-        guard let fileName = fileName, !fileName.isEmpty else { return bundledURL }
+        let fallback = bundledURL(name: Self.defaultSoundName) ?? bundledURL(name: "alarm_default")
+        guard let fileName = fileName, !fileName.isEmpty else { return fallback }
         let candidate = documentsURL.appendingPathComponent(fileName)
         if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
-        return bundledURL
+        return bundledURL(name: fileName) ?? fallback
     }
 
     func importFile(from url: URL) {

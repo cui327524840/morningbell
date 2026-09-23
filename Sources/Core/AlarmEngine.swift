@@ -26,14 +26,12 @@ final class AlarmEngine: NSObject, ObservableObject {
     private var tickTimer: Timer?
     private var autoStopTimer: Timer?
     private var musicPlayer: AVAudioPlayer?
-    private let synthesizer = AVSpeechSynthesizer()
     private var lastFired: [UUID: Date] = [:]
     private var snoozePlan: (alarm: Alarm, date: Date)?
     private var pendingRingID: UUID?
 
     private override init() {
         super.init()
-        synthesizer.delegate = self
     }
 
     // MARK: - 生命周期
@@ -315,7 +313,7 @@ final class AlarmEngine: NSObject, ObservableObject {
     }
 
     private func stopAudio() {
-        synthesizer.stopSpeaking(at: .immediate)
+        SpeechService.shared.stop()
         musicPlayer?.stop()
         musicPlayer = nil
         autoStopTimer?.invalidate()
@@ -345,21 +343,20 @@ final class AlarmEngine: NSObject, ObservableObject {
         }
         var parts: [String] = []
         if alarm.speakTime {
-            parts.append(timeGreeting())
+            parts.append(dateGreeting())
         }
+        // 顺序：今天是几月几号星期几 → 天气 → 今日时政
+        var newsText: String?
         if alarm.speakNews {
             let digestText = alarm.speakNewsDetail
                 ? DigestService.shared.spokenDigest(limit: 2)
                 : DigestService.shared.spokenHeadlines(limit: 2)
-            if let digestText = digestText {
-                parts.append(digestText)
-            } else if let fallback = NewsService.shared.topHeadlines(limit: 2) {
-                parts.append(fallback)
-            }
+            newsText = digestText ?? NewsService.shared.topHeadlines(limit: 2)
         }
 
         let city = alarm.cityName.isEmpty ? (settings?.defaultCity ?? "北京") : alarm.cityName
         guard alarm.speakWeather else {
+            if let newsText = newsText { parts.append(newsText) }
             finishSpeech(parts: parts)
             return
         }
@@ -372,6 +369,9 @@ final class AlarmEngine: NSObject, ObservableObject {
             } else {
                 allParts.append("天气暂时获取不到。")
             }
+            if let newsText = newsText {
+                allParts.append(newsText)
+            }
             self.finishSpeech(parts: allParts)
         }
     }
@@ -381,30 +381,39 @@ final class AlarmEngine: NSObject, ObservableObject {
             .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "。")) }
             .filter { !$0.isEmpty }
         guard !sentences.isEmpty else { return }
-        speakText(sentences.joined(separator: "。") + "。", rate: nil)
+        speakText(sentences.joined(separator: "。") + "。")
     }
 
-    func speakText(_ text: String, rate: Float?) {
+    /// 统一走 SpeechService：自动使用设备上最好的中文音色，开启云端语音时用真人音色。
+    func speakText(_ text: String) {
         guard !text.isEmpty else { return }
         spokenText = text
-        synthesizer.stopSpeaking(at: .immediate)
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
-        utterance.rate = rate ?? Float(settings?.speechRate ?? 0.45)
-        utterance.volume = 1.0
-        synthesizer.speak(utterance)
+        if ringing != nil {
+            // 响铃时：念完后把音乐音量恢复到满
+            SpeechService.shared.speak(text, onFinish: { [weak self] in
+                self?.musicPlayer?.setVolume(1.0, fadeDuration: 1.0)
+            })
+        } else {
+            SpeechService.shared.speak(text)
+        }
     }
 
     /// 试听用：不占用响铃状态。
     func previewSpeech() {
         activateAlarmSession()
-        let sample = "\(timeGreeting())。这是语音播报的试听效果，今天\(settings?.defaultCity ?? "北京")晴，气温 12 到 22 度。"
-        speakText(sample, rate: nil)
+        let sample = "\(dateGreeting())。这是语音播报的试听效果，今天\(settings?.defaultCity ?? "北京")晴，气温 12 到 22 度。"
+        speakText(sample)
     }
 
-    private func timeGreeting() -> String {
+    /// 「今天是 2026 年 9 月 23 日，星期三，现在是早上 6 点 50 分」
+    private func dateGreeting() -> String {
         let now = Date()
-        let hour = Calendar.current.component(.hour, from: now)
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day, .weekday, .hour, .minute], from: now)
+        let weekdayNames = ["日", "一", "二", "三", "四", "五", "六"]
+        let weekdayIndex = (components.weekday ?? 1) - 1
+        let weekday = weekdayNames.indices.contains(weekdayIndex) ? weekdayNames[weekdayIndex] : ""
+        let hour = components.hour ?? 0
         let period: String
         switch hour {
         case 0..<5: period = "凌晨"
@@ -415,16 +424,9 @@ final class AlarmEngine: NSObject, ObservableObject {
         case 17..<19: period = "傍晚"
         default: period = "晚上"
         }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "H点m分"
-        return "现在是\(period)\(formatter.string(from: now))"
-    }
-}
-
-extension AlarmEngine: AVSpeechSynthesizerDelegate {
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        musicPlayer?.setVolume(1.0, fadeDuration: 1.0)
+        let minute = components.minute ?? 0
+        let minuteText = minute == 0 ? "整" : "\(minute)分"
+        return "今天是\(components.year ?? 0)年\(components.month ?? 0)月\(components.day ?? 0)日，星期\(weekday)，现在是\(period)\(hour)点\(minuteText)"
     }
 }
 

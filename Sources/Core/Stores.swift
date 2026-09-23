@@ -110,6 +110,23 @@ final class AppSettings: ObservableObject {
     @Published var digestCustomURL: String = "" {
         didSet { save(digestCustomURL, "digestCustomURL") }
     }
+    /// 系统朗读音色（AVSpeechSynthesisVoice.identifier），空字符串表示自动挑设备上最好的。
+    @Published var voiceIdentifier: String = "" {
+        didSet { save(voiceIdentifier, "voiceIdentifier") }
+    }
+    /// 是否使用云端真人语音（微软 Azure 语音服务）。
+    @Published var cloudVoiceEnabled: Bool = false {
+        didSet { save(cloudVoiceEnabled, "cloudVoiceEnabled") }
+    }
+    @Published var cloudTTSKey: String = "" {
+        didSet { save(cloudTTSKey, "cloudTTSKey") }
+    }
+    @Published var cloudTTSRegion: String = "eastasia" {
+        didSet { save(cloudTTSRegion, "cloudTTSRegion") }
+    }
+    @Published var cloudTTSVoice: String = "zh-CN-XiaoxiaoNeural" {
+        didSet { save(cloudTTSVoice, "cloudTTSVoice") }
+    }
 
     init() {
         keepAlive = defaults.object(forKey: "keepAlive") as? Bool ?? true
@@ -121,6 +138,11 @@ final class AppSettings: ObservableObject {
         defaultCity = defaults.string(forKey: "defaultCity") ?? "北京"
         digestRepo = defaults.string(forKey: "digestRepo") ?? ""
         digestCustomURL = defaults.string(forKey: "digestCustomURL") ?? ""
+        voiceIdentifier = defaults.string(forKey: "voiceIdentifier") ?? ""
+        cloudVoiceEnabled = defaults.object(forKey: "cloudVoiceEnabled") as? Bool ?? false
+        cloudTTSKey = defaults.string(forKey: "cloudTTSKey") ?? ""
+        cloudTTSRegion = defaults.string(forKey: "cloudTTSRegion") ?? "eastasia"
+        cloudTTSVoice = defaults.string(forKey: "cloudTTSVoice") ?? "zh-CN-XiaoxiaoNeural"
         loadSources()
         isLoaded = true
     }
