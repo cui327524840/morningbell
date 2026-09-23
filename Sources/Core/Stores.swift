@@ -93,7 +93,7 @@ final class AppSettings: ObservableObject {
     @Published var speechRate: Double = 0.45 {
         didSet { save(speechRate, "speechRate") }
     }
-    @Published var autoStopMinutes: Int = 10 {
+    @Published var autoStopMinutes: Int = 20 {
         didSet { save(autoStopMinutes, "autoStopMinutes") }
     }
     @Published var defaultCity: String = "北京" {
@@ -138,7 +138,7 @@ final class AppSettings: ObservableObject {
         criticalAlerts = defaults.object(forKey: "criticalAlerts") as? Bool ?? false
         voiceEnabled = defaults.object(forKey: "voiceEnabled") as? Bool ?? true
         speechRate = defaults.object(forKey: "speechRate") as? Double ?? 0.45
-        autoStopMinutes = defaults.object(forKey: "autoStopMinutes") as? Int ?? 10
+        autoStopMinutes = defaults.object(forKey: "autoStopMinutes") as? Int ?? 20
         defaultCity = defaults.string(forKey: "defaultCity") ?? "北京"
         digestRepo = defaults.string(forKey: "digestRepo") ?? ""
         digestCustomURL = defaults.string(forKey: "digestCustomURL") ?? ""

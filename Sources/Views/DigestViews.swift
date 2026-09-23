@@ -100,6 +100,13 @@ struct DigestView: View {
                 .buttonStyle(CompactActionButtonStyle())
 
                 Button {
+                    toggleSpeakFull()
+                } label: {
+                    Text("朗读全文")
+                }
+                .buttonStyle(CompactActionButtonStyle())
+
+                Button {
                     digestService.refresh()
                 } label: {
                     Text("立即更新")
@@ -155,6 +162,19 @@ struct DigestView: View {
         } else {
             speech.speakAll(digestService.speechQueue())
         }
+    }
+
+    /// 把当天每条的正文也念出来（时间较长，适合当睡前/晨读广播）。
+    private func toggleSpeakFull() {
+        if speech.isSpeaking {
+            speech.stop()
+            return
+        }
+        let items = digestService.digest?.newsItems ?? []
+        let queue: [(id: String?, text: String)] = items.enumerated().map { index, item in
+            (id: item.id as String?, text: "第\(index + 1)条，\(digestService.fullSpeechText(for: item))")
+        }
+        speech.speakAll(queue)
     }
 
 }

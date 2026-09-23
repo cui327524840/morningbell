@@ -350,6 +350,34 @@ final class DigestService: ObservableObject {
         return text
     }
 
+    /// 完整朗读用的文字：标题 + 全文正文。
+    func fullSpeechText(for item: DigestItem) -> String {
+        var text = item.title + "。"
+        if let body = item.body, body.count >= 80 {
+            text += body.replacingOccurrences(of: "\n", with: "")
+        } else if !item.summary.isEmpty {
+            text += item.summary
+        }
+        return text
+    }
+
+    /// 闹钟播报用的「标题 + 全文」串；limit <= 0 表示当天全部。
+    func spokenFullDigest(limit: Int = 0) -> String? {
+        let all = digest?.newsItems ?? []
+        let items = limit > 0 ? Array(all.prefix(limit)) : all
+        guard !items.isEmpty else { return nil }
+        var parts = ["今日时政要点，共\(all.count)条"]
+        for (index, item) in items.enumerated() {
+            parts.append("第\(index + 1)条，\(item.title)")
+            if let body = item.body, body.count >= 80 {
+                parts.append(body.replacingOccurrences(of: "\n", with: ""))
+            } else if !item.summary.isEmpty {
+                parts.append(item.summary)
+            }
+        }
+        return parts.joined(separator: "。")
+    }
+
     /// 整篇朗读用的队列。
     func speechQueue() -> [(id: String?, text: String)] {
         let items = digest?.newsItems ?? []

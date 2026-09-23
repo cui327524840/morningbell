@@ -1,5 +1,22 @@
 import Foundation
 
+/// 闹钟播报时政的详细程度
+enum NewsSpeechStyle: Int, CaseIterable, Identifiable {
+    case title = 0
+    case brief = 1
+    case full = 2
+
+    var id: Int { rawValue }
+
+    var title: String {
+        switch self {
+        case .title: return "只念标题"
+        case .brief: return "标题 + 一句话简报"
+        case .full: return "标题 + 全文（推荐）"
+        }
+    }
+}
+
 struct Alarm: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
     var hour: Int = 6
@@ -18,8 +35,10 @@ struct Alarm: Identifiable, Codable, Equatable {
     var speakNews: Bool = true
     /// 播报时连简报一起念（默认打开；只念标题的话内容太少）。
     var speakNewsDetail: Bool = true
+    /// 播报详细程度：0 标题 / 1 标题+简报 / 2 标题+全文
+    var newsSpeechStyle: Int = NewsSpeechStyle.full.rawValue
     /// 播报条数：0 表示当天全部。
-    var newsLimit: Int = 0
+    var newsLimit: Int = 3
     /// 该闹钟单独指定的城市；为空则使用设置里的默认城市。
     var cityName: String = ""
 
@@ -44,7 +63,7 @@ struct Alarm: Identifiable, Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case id, hour, minute, label, weekdays, isEnabled, snoozeMinutes
-        case soundFileName, speakTime, speakWeather, speakNews, speakNewsDetail, newsLimit, cityName
+        case soundFileName, speakTime, speakWeather, speakNews, speakNewsDetail, newsSpeechStyle, newsLimit, cityName
     }
 
     init() {}
@@ -64,7 +83,9 @@ struct Alarm: Identifiable, Codable, Equatable {
         speakWeather = try container.decodeIfPresent(Bool.self, forKey: .speakWeather) ?? true
         speakNews = try container.decodeIfPresent(Bool.self, forKey: .speakNews) ?? true
         speakNewsDetail = try container.decodeIfPresent(Bool.self, forKey: .speakNewsDetail) ?? true
-        newsLimit = try container.decodeIfPresent(Int.self, forKey: .newsLimit) ?? 0
+        newsSpeechStyle = try container.decodeIfPresent(Int.self, forKey: .newsSpeechStyle)
+            ?? (speakNewsDetail ? NewsSpeechStyle.brief.rawValue : NewsSpeechStyle.title.rawValue)
+        newsLimit = try container.decodeIfPresent(Int.self, forKey: .newsLimit) ?? 3
         cityName = try container.decodeIfPresent(String.self, forKey: .cityName) ?? ""
     }
 }

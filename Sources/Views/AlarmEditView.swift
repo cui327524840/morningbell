@@ -79,14 +79,21 @@ struct AlarmEditView: View {
                     Toggle("播报今日天气", isOn: $draft.speakWeather)
                     Toggle("播报时政头条", isOn: $draft.speakNews)
                     if draft.speakNews {
-                        Toggle("连一句话简报一起念（推荐）", isOn: $draft.speakNewsDetail)
-                            .padding(.leading, 8)
+                        Picker("念多少内容", selection: $draft.newsSpeechStyle) {
+                            ForEach(NewsSpeechStyle.allCases) { style in
+                                Text(style.title).tag(style.rawValue)
+                            }
+                        }
+                        .padding(.leading, 8)
                         Picker("播报条数", selection: $draft.newsLimit) {
                             Text("当天全部").tag(0)
                             Text("前 3 条").tag(3)
                             Text("前 5 条").tag(5)
                         }
                         .padding(.leading, 8)
+                        Text("念全文时内容较长，建议把上面的「响铃后自动停止」调到 20 分钟以上。")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
                     }
                     HStack {
                         Text("城市")
