@@ -127,6 +127,10 @@ final class AppSettings: ObservableObject {
     @Published var cloudTTSVoice: String = "zh-CN-XiaoxiaoNeural" {
         didSet { save(cloudTTSVoice, "cloudTTSVoice") }
     }
+    /// 默认铃声：内置铃声音名或用户导入的音频文件名。空字符串表示内置轻音乐。
+    @Published var defaultSoundFileName: String = "" {
+        didSet { save(defaultSoundFileName, "defaultSoundFileName") }
+    }
 
     init() {
         keepAlive = defaults.object(forKey: "keepAlive") as? Bool ?? true
@@ -143,6 +147,7 @@ final class AppSettings: ObservableObject {
         cloudTTSKey = defaults.string(forKey: "cloudTTSKey") ?? ""
         cloudTTSRegion = defaults.string(forKey: "cloudTTSRegion") ?? "eastasia"
         cloudTTSVoice = defaults.string(forKey: "cloudTTSVoice") ?? "zh-CN-XiaoxiaoNeural"
+        defaultSoundFileName = defaults.string(forKey: "defaultSoundFileName") ?? ""
         loadSources()
         isLoaded = true
     }

@@ -16,8 +16,10 @@ struct Alarm: Identifiable, Codable, Equatable {
     var speakWeather: Bool = true
     /// 起床时顺带播报今日时政要点（默认打开，这是这个 App 的主打功能）。
     var speakNews: Bool = true
-    /// 播报时除了标题，是否连要点详情一起念（内容更完整，时间也更长）。
-    var speakNewsDetail: Bool = false
+    /// 播报时连简报一起念（默认打开；只念标题的话内容太少）。
+    var speakNewsDetail: Bool = true
+    /// 播报条数：0 表示当天全部。
+    var newsLimit: Int = 0
     /// 该闹钟单独指定的城市；为空则使用设置里的默认城市。
     var cityName: String = ""
 
@@ -42,7 +44,7 @@ struct Alarm: Identifiable, Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case id, hour, minute, label, weekdays, isEnabled, snoozeMinutes
-        case soundFileName, speakTime, speakWeather, speakNews, speakNewsDetail, cityName
+        case soundFileName, speakTime, speakWeather, speakNews, speakNewsDetail, newsLimit, cityName
     }
 
     init() {}
@@ -61,7 +63,8 @@ struct Alarm: Identifiable, Codable, Equatable {
         speakTime = try container.decodeIfPresent(Bool.self, forKey: .speakTime) ?? true
         speakWeather = try container.decodeIfPresent(Bool.self, forKey: .speakWeather) ?? true
         speakNews = try container.decodeIfPresent(Bool.self, forKey: .speakNews) ?? true
-        speakNewsDetail = try container.decodeIfPresent(Bool.self, forKey: .speakNewsDetail) ?? false
+        speakNewsDetail = try container.decodeIfPresent(Bool.self, forKey: .speakNewsDetail) ?? true
+        newsLimit = try container.decodeIfPresent(Int.self, forKey: .newsLimit) ?? 0
         cityName = try container.decodeIfPresent(String.self, forKey: .cityName) ?? ""
     }
 }

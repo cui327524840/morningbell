@@ -65,6 +65,17 @@ final class SoundLibrary: ObservableObject {
         return bundledURL(name: fileName) ?? fallback
     }
 
+    /// 标题：内置音名映射成中文，导入的音用文件名。
+    func title(for fileName: String?) -> String {
+        guard let fileName = fileName, !fileName.isEmpty else {
+            return Self.bundledSounds.first { $0.name == Self.defaultSoundName }?.title ?? "内置铃声"
+        }
+        if let bundled = Self.bundledSounds.first(where: { $0.name == fileName }) {
+            return bundled.title
+        }
+        return (fileName as NSString).deletingPathExtension
+    }
+
     func importFile(from url: URL) {
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }

@@ -21,6 +21,10 @@ struct MorningBellApp: App {
                 .environmentObject(news)
                 .environmentObject(digest)
                 .onAppear { bootstrap() }
+                .onOpenURL { url in
+                    // 从微信/文件 App「用其他应用打开」进来的音频，直接存进 App 铃声库
+                    SoundLibrary.shared.importFile(from: url)
+                }
                 .onChange(of: scenePhase) { phase in
                     switch phase {
                     case .active:

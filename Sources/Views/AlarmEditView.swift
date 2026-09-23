@@ -18,7 +18,7 @@ struct AlarmEditView: View {
 
     init(alarm: Alarm, isNew: Bool) {
         _draft = State(initialValue: alarm)
-        _soundID = State(initialValue: alarm.soundFileName ?? SoundLibrary.defaultSoundName)
+        _soundID = State(initialValue: alarm.soundFileName ?? "")
         self.isNew = isNew
     }
 
@@ -79,8 +79,14 @@ struct AlarmEditView: View {
                     Toggle("播报今日天气", isOn: $draft.speakWeather)
                     Toggle("播报时政头条", isOn: $draft.speakNews)
                     if draft.speakNews {
-                        Toggle("连要点详情一起念（更长）", isOn: $draft.speakNewsDetail)
+                        Toggle("连一句话简报一起念（推荐）", isOn: $draft.speakNewsDetail)
                             .padding(.leading, 8)
+                        Picker("播报条数", selection: $draft.newsLimit) {
+                            Text("当天全部").tag(0)
+                            Text("前 3 条").tag(3)
+                            Text("前 5 条").tag(5)
+                        }
+                        .padding(.leading, 8)
                     }
                     HStack {
                         Text("城市")
@@ -129,6 +135,13 @@ struct AlarmEditView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onAppear {
+            // 新闹钟用设置里的默认铃声
+            if soundID.isEmpty {
+                let configured = settings.defaultSoundFileName
+                soundID = configured.isEmpty ? SoundLibrary.defaultSoundName : configured
+            }
+        }
         .onDisappear {
             stopPreview()
             engine.resume()

@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @EnvironmentObject private var settings: AppSettings
@@ -7,9 +8,11 @@ struct SettingsView: View {
     @EnvironmentObject private var news: NewsService
     @EnvironmentObject private var digestService: DigestService
     @ObservedObject private var speech = SpeechService.shared
+    @ObservedObject private var soundLibrary = SoundLibrary.shared
 
     @State private var cityDraft = ""
     @State private var criticalMessage = ""
+    @State private var showSoundImporter = false
 
     var body: some View {
         NavigationView {
@@ -85,6 +88,26 @@ struct SettingsView: View {
                         }
                     }
                     Text("设备自带的中文朗读偏机械。到「设置 → 辅助功能 → 朗读内容 → 声音 → 中文（普通话）」里下载「增强」或「Siri」音色，回到这里选中它，听感会自然不少。")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+
+                Section(header: Text("铃声")) {
+                    Picker("默认铃声（新闹钟用）", selection: $settings.defaultSoundFileName) {
+                        Text("内置轻音乐").tag("")
+                        Text("经典闹铃").tag("alarm_default")
+                        ForEach(soundLibrary.importedFiles, id: \.lastPathComponent) { file in
+                            Text(file.deletingPathExtension().lastPathComponent)
+                                .tag(file.lastPathComponent)
+                        }
+                    }
+                    Button("导入音频（MP3 / M4A / WAV）") { showSoundImporter = true }
+                    if !soundLibrary.importedFiles.isEmpty {
+                        Text("已导入 \(soundLibrary.importedFiles.count) 个：\(soundLibrary.importedFiles.map { $0.deletingPathExtension().lastPathComponent }.joined(separator: "、"))")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                    Text("也可以把音乐传到手机后用微信「用其他应用打开 → 晨钟」，或从「文件」App 分享到晨钟，都会自动出现在这里。")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
@@ -226,6 +249,14 @@ struct SettingsView: View {
             .onAppear {
                 cityDraft = settings.defaultCity
                 engine.refreshAuthorizationStatus()
+            }
+            .fileImporter(isPresented: $showSoundImporter,
+                          allowedContentTypes: [.audio],
+                          allowsMultipleSelection: false) { result in
+                if case .success(let urls) = result, let url = urls.first {
+                    soundLibrary.importFile(from: url)
+                    settings.defaultSoundFileName = url.lastPathComponent
+                }
             }
         }
         .navigationViewStyle(.stack)

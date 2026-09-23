@@ -325,9 +325,10 @@ final class DigestService: ObservableObject {
     }
 
     /// 起床播报用的「标题 + 要点详情」，内容更完整。
-    func spokenDigest(limit: Int = 2) -> String? {
+    /// limit <= 0 表示把当天全部要点都念出来。
+    func spokenDigest(limit: Int = 0) -> String? {
         let all = digest?.newsItems ?? []
-        let items = Array(all.prefix(limit))
+        let items = limit > 0 ? Array(all.prefix(limit)) : all
         guard !items.isEmpty else { return nil }
         var parts = ["今日时政要点，共\(all.count)条"]
         for (index, item) in items.enumerated() {

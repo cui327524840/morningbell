@@ -348,9 +348,10 @@ final class AlarmEngine: NSObject, ObservableObject {
         // 顺序：今天是几月几号星期几 → 天气 → 今日时政
         var newsText: String?
         if alarm.speakNews {
+            // 默认念「标题 + 一句话简报」，可以只念前几条或全部
             let digestText = alarm.speakNewsDetail
-                ? DigestService.shared.spokenDigest(limit: 2)
-                : DigestService.shared.spokenHeadlines(limit: 2)
+                ? DigestService.shared.spokenDigest(limit: alarm.newsLimit)
+                : DigestService.shared.spokenHeadlines(limit: alarm.newsLimit > 0 ? alarm.newsLimit : 3)
             newsText = digestText ?? NewsService.shared.topHeadlines(limit: 2)
         }
 

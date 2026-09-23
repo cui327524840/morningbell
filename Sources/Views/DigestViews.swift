@@ -196,6 +196,10 @@ struct DigestRow: View {
                     Text(item.title)
                         .font(.headline)
                         .fixedSize(horizontal: false, vertical: true)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if !item.link.isEmpty { onOpen() }
+                        }
 
                     HStack(spacing: 6) {
                         Text(item.categoryText)
