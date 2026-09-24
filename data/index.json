@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-09-25",
+    "count": 8,
+    "method": "extractive",
+    "generatedAt": "2026-09-24T23:58:10Z"
+  },
+  {
     "date": "2026-09-24",
     "count": 8,
     "method": "extractive",
